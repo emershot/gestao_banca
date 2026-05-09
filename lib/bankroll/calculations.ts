@@ -1,20 +1,64 @@
 import type {
   BankrollOperation,
   BankrollSnapshot,
+  BetMarket,
   BettingStrategy,
   EntryMethod,
   EquityPoint,
+  MarketSummary,
   MethodSummary,
   PerformanceSummary,
   PerformanceTrend,
   RiskAlert,
   RiskPlan,
   StrategySummary,
+  TradeSide,
 } from "./types";
 
 const settledStatuses = new Set(["green", "red", "void"]);
 
 const roundCurrency = (value: number) => Math.round(value * 100) / 100;
+
+const getTradeExposure = (operation: BankrollOperation) => (
+  operation.side === "Lay" ? operation.stake * (operation.entryOdds - 1) : operation.stake
+);
+
+const getTickMove = (operation: BankrollOperation) => {
+  if (!operation.exitOdds) {
+    return 0;
+  }
+
+  const rawMove = operation.entryOdds - operation.exitOdds;
+  return operation.side === "Back" ? rawMove : rawMove * -1;
+};
+
+export function calculateTradeProfit(
+  side: TradeSide,
+  stake: number,
+  entryOdds: number,
+  exitOdds?: number,
+) {
+  if (!exitOdds || entryOdds <= 1 || exitOdds <= 1 || stake <= 0) {
+    return 0;
+  }
+
+  const ratio = entryOdds / exitOdds;
+  const profit = side === "Back" ? stake * (ratio - 1) : stake * (1 - ratio);
+
+  return roundCurrency(profit);
+}
+
+export function resolveTradeStatus(profit: number): BankrollOperation["status"] {
+  if (profit > 0) {
+    return "green";
+  }
+
+  if (profit < 0) {
+    return "red";
+  }
+
+  return "void";
+}
 
 const classifyTrend = (profit: number, roi: number): PerformanceTrend => {
   if (profit > 0 && roi >= 2) {
@@ -34,9 +78,16 @@ const buildPerformanceSummary = (operations: BankrollOperation[]): PerformanceSu
   const wins = operations.filter((operation) => operation.status === "green").length;
   const losses = operations.filter((operation) => operation.status === "red").length;
   const operationsCount = operations.length;
-  const averageOdds = operationsCount === 0
+  const exitedOperations = operations.filter((operation) => operation.exitOdds);
+  const averageEntryOdds = operationsCount === 0
     ? 0
-    : operations.reduce((sum, operation) => sum + operation.odds, 0) / operationsCount;
+    : operations.reduce((sum, operation) => sum + operation.entryOdds, 0) / operationsCount;
+  const averageExitOdds = exitedOperations.length === 0
+    ? 0
+    : exitedOperations.reduce((sum, operation) => sum + Number(operation.exitOdds), 0) / exitedOperations.length;
+  const averageTickMove = operationsCount === 0
+    ? 0
+    : operations.reduce((sum, operation) => sum + getTickMove(operation), 0) / operationsCount;
   const roi = stake === 0 ? 0 : (profit / stake) * 100;
   const hitRate = operationsCount === 0 ? 0 : (wins / operationsCount) * 100;
 
@@ -48,25 +99,31 @@ const buildPerformanceSummary = (operations: BankrollOperation[]): PerformanceSu
     stake: roundCurrency(stake),
     roi: roundCurrency(roi),
     hitRate: roundCurrency(hitRate),
-    averageOdds: roundCurrency(averageOdds),
+    averageEntryOdds: roundCurrency(averageEntryOdds),
+    averageExitOdds: roundCurrency(averageExitOdds),
+    averageTickMove: roundCurrency(averageTickMove),
     trend: classifyTrend(profit, roi),
   };
 };
 
 const buildMethodRecommendation = (summary: PerformanceSummary) => {
   if (summary.operations < 3) {
-    return "Amostra pequena: colete mais entradas antes de aumentar stake.";
+    return "Amostra pequena: valide mais trades antes de escalar stake na Betfair.";
+  }
+
+  if (summary.trend === "lucrativo" && summary.averageTickMove > 0) {
+    return "Método validado: mantém leitura de preço favorável. Escale só dentro do limite de exposição.";
   }
 
   if (summary.trend === "lucrativo") {
-    return "Método validado: manter execução e considerar aumento gradual dentro do plano.";
+    return "Método lucrativo, mas revise a relação entrada/saída para confirmar se o lucro não depende de exceções.";
   }
 
   if (summary.trend === "prejuízo") {
-    return "Método em prejuízo: reduzir stake, revisar critérios e pausar se repetir perdas.";
+    return "Método em prejuízo: reduza stake, revise timing de entrada/saída e evite operar contra liquidez.";
   }
 
-  return "Método neutro: manter stake padrão e buscar filtros de seleção melhores.";
+  return "Método neutro: mantenha stake mínima e refine critérios de mercado, campeonato e equipes.";
 };
 
 export function getSettledOperations(operations: BankrollOperation[]) {
@@ -148,6 +205,20 @@ export function summarizeMethods(
     .sort((a, b) => b.profit - a.profit);
 }
 
+export function summarizeMarkets(
+  operations: BankrollOperation[],
+  markets: BetMarket[],
+): MarketSummary[] {
+  const settledOperations = getSettledOperations(operations);
+
+  return markets
+    .map((market) => ({
+      market,
+      ...buildPerformanceSummary(settledOperations.filter((operation) => operation.market === market)),
+    }))
+    .sort((a, b) => b.profit - a.profit);
+}
+
 export function buildRiskAlerts(snapshot: Omit<BankrollSnapshot, "alerts">, plan: RiskPlan): RiskAlert[] {
   const exposureUsage = plan.maxDailyExposure === 0
     ? 0
@@ -157,6 +228,7 @@ export function buildRiskAlerts(snapshot: Omit<BankrollSnapshot, "alerts">, plan
     : (snapshot.totalProfit / plan.initialBankroll) * 100;
   const losingMethods = snapshot.methods.filter((method) => method.trend === "prejuízo");
   const bestMethod = snapshot.methods.find((method) => method.trend === "lucrativo");
+  const bestMarket = snapshot.markets.find((market) => market.trend === "lucrativo");
   const alerts: RiskAlert[] = [];
 
   if (exposureUsage >= 80) {
@@ -179,7 +251,7 @@ export function buildRiskAlerts(snapshot: Omit<BankrollSnapshot, "alerts">, plan
     alerts.push({
       id: "drawdown-stop",
       title: "Drawdown acima do stop",
-      description: "O drawdown máximo atingiu o limite do plano. Reduza volume e revise a carteira de métodos.",
+      description: "O drawdown máximo atingiu o limite do plano. Reduza volume e revise mercados/campeonatos.",
       severity: "critical",
     });
   }
@@ -188,7 +260,7 @@ export function buildRiskAlerts(snapshot: Omit<BankrollSnapshot, "alerts">, plan
     alerts.push({
       id: "take-profit",
       title: "Meta de lucro atingida",
-      description: "A banca já superou o take profit definido. Proteja resultado e diminua exposição.",
+      description: "A banca já superou o take profit definido. Proteja resultado, faça hedge e diminua exposição.",
       severity: "success",
     });
   }
@@ -197,7 +269,7 @@ export function buildRiskAlerts(snapshot: Omit<BankrollSnapshot, "alerts">, plan
     alerts.push({
       id: "losing-methods",
       title: "Métodos em prejuízo",
-      description: `${losingMethods.map((method) => method.method).join(", ")} exigem revisão antes de novas entradas.`,
+      description: `${losingMethods.map((method) => method.method).join(", ")} exigem revisão de timing e liquidez antes de novas entradas.`,
       severity: "warning",
     });
   }
@@ -206,7 +278,16 @@ export function buildRiskAlerts(snapshot: Omit<BankrollSnapshot, "alerts">, plan
     alerts.push({
       id: "best-method",
       title: "Método mais eficiente",
-      description: `${bestMethod.method} lidera a banca com ROI de ${bestMethod.roi.toFixed(1)}%.`,
+      description: `${bestMethod.method} lidera a banca com ROI de ${bestMethod.roi.toFixed(1)}% e movimento médio de ${bestMethod.averageTickMove.toFixed(2)} ponto(s).`,
+      severity: "info",
+    });
+  }
+
+  if (bestMarket) {
+    alerts.push({
+      id: "best-market",
+      title: "Mercado prioritário",
+      description: `${bestMarket.market} apresenta a melhor leitura de preço no histórico atual.`,
       severity: "info",
     });
   }
@@ -219,6 +300,7 @@ export function calculateBankrollSnapshot(
   operations: BankrollOperation[],
   strategies: BettingStrategy[],
   methods: EntryMethod[],
+  markets: BetMarket[],
   plan?: RiskPlan,
 ): BankrollSnapshot {
   const settledOperations = getSettledOperations(operations);
@@ -227,7 +309,7 @@ export function calculateBankrollSnapshot(
   const wins = settledOperations.filter((operation) => operation.status === "green").length;
   const openExposure = operations
     .filter((operation) => operation.status === "open")
-    .reduce((sum, operation) => sum + operation.stake, 0);
+    .reduce((sum, operation) => sum + getTradeExposure(operation), 0);
   const equityCurve = calculateEquityCurve(initialBankroll, operations);
   const snapshotWithoutAlerts: Omit<BankrollSnapshot, "alerts"> = {
     initialBankroll,
@@ -241,6 +323,7 @@ export function calculateBankrollSnapshot(
     equityCurve,
     strategies: summarizeStrategies(operations, strategies),
     methods: summarizeMethods(operations, methods),
+    markets: summarizeMarkets(operations, markets),
   };
 
   return {

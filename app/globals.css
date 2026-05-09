@@ -610,3 +610,64 @@ th {
     flex-direction: column;
   }
 }
+
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.market-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 18px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.07);
+}
+
+.market-card span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.market-card strong {
+  font-size: 1.35rem;
+}
+
+.market-card small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.market-card.lucrativo {
+  border-color: #bbf7d0;
+}
+
+.market-card.prejuízo {
+  border-color: #fecaca;
+}
+
+.market-card.prejuízo strong {
+  color: var(--danger);
+}
+
+.market-card.lucrativo strong {
+  color: var(--positive);
+}
+
+@media (max-width: 1200px) {
+  .market-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .market-grid {
+    grid-template-columns: 1fr;
+  }
+}

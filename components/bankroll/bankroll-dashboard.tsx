@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { EquityChart } from "./equity-chart";
 import { RiskMeter } from "./risk-meter";
-import { calculateBankrollSnapshot } from "@/lib/bankroll/calculations";
+import { calculateBankrollSnapshot, calculateTradeProfit, resolveTradeStatus } from "@/lib/bankroll/calculations";
 import type {
   BankrollOperation,
   BankrollRule,
@@ -13,6 +13,7 @@ import type {
   EntryMethod,
   OperationStatus,
   RiskPlan,
+  TradeSide,
 } from "@/lib/bankroll/types";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -26,7 +27,7 @@ const percentFormatter = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 1,
 });
 
-const markets: BetMarket[] = ["Futebol", "Tênis", "Basquete", "Escanteios", "Over/Under", "Handicap"];
+const sides: TradeSide[] = ["Back", "Lay"];
 const statuses: OperationStatus[] = ["green", "red", "void", "open"];
 const storageKey = "gestao-banca-operations";
 
@@ -50,13 +51,47 @@ const createInitialForm = (strategy: BettingStrategy, method: EntryMethod) => ({
   strategyId: strategy.id,
   method,
   market: strategy.market,
-  event: "",
+  competition: "",
+  homeTeam: "",
+  awayTeam: "",
   selection: "",
-  odds: "1.80",
+  side: "Back" as TradeSide,
+  entryOdds: "1.80",
+  exitOdds: "",
   stake: "50",
   status: "open" as OperationStatus,
   notes: "",
 });
+
+
+type StoredOperation = Partial<BankrollOperation> & {
+  event?: string;
+  odds?: number;
+};
+
+const normalizeStoredOperation = (operation: StoredOperation): BankrollOperation => {
+  const [homeTeam = "Mandante não informado", awayTeam = "Visitante não informado"] =
+    operation.event?.split(" x ") ?? [];
+
+  return {
+    id: operation.id ?? `op-${Date.now()}`,
+    date: operation.date ?? new Date().toISOString().slice(0, 10),
+    strategyId: operation.strategyId ?? "match-odds-swing",
+    method: operation.method ?? "Swing trade",
+    market: operation.market ?? "Match Odds",
+    competition: operation.competition ?? "Campeonato não informado",
+    homeTeam: operation.homeTeam ?? homeTeam,
+    awayTeam: operation.awayTeam ?? awayTeam,
+    selection: operation.selection ?? "Seleção não informada",
+    side: operation.side ?? "Back",
+    entryOdds: operation.entryOdds ?? operation.odds ?? 1.8,
+    exitOdds: operation.exitOdds,
+    stake: operation.stake ?? 0,
+    profit: operation.profit ?? 0,
+    status: operation.status ?? "open",
+    notes: operation.notes,
+  };
+};
 
 type BankrollDashboardProps = {
   initialBankroll: number;
@@ -65,6 +100,7 @@ type BankrollDashboardProps = {
   entryMethods: EntryMethod[];
   riskPlan: RiskPlan;
   bankrollRules: BankrollRule[];
+  betfairMarkets: BetMarket[];
 };
 
 export function BankrollDashboard({
@@ -74,6 +110,7 @@ export function BankrollDashboard({
   entryMethods,
   riskPlan,
   bankrollRules,
+  betfairMarkets,
 }: BankrollDashboardProps) {
   const [operations, setOperations] = useState(initialOperations);
   const [storageReady, setStorageReady] = useState(false);
@@ -86,7 +123,7 @@ export function BankrollDashboard({
     const storedOperations = window.localStorage.getItem(storageKey);
 
     if (storedOperations) {
-      setOperations(JSON.parse(storedOperations) as BankrollOperation[]);
+      setOperations((JSON.parse(storedOperations) as StoredOperation[]).map(normalizeStoredOperation));
     }
 
     setStorageReady(true);
@@ -99,8 +136,8 @@ export function BankrollDashboard({
   }, [operations, storageReady]);
 
   const snapshot = useMemo(
-    () => calculateBankrollSnapshot(initialBankroll, operations, strategies, entryMethods, riskPlan),
-    [entryMethods, initialBankroll, operations, riskPlan, strategies],
+    () => calculateBankrollSnapshot(initialBankroll, operations, strategies, entryMethods, betfairMarkets, riskPlan),
+    [betfairMarkets, entryMethods, initialBankroll, operations, riskPlan, strategies],
   );
   const plan = { ...riskPlan, currentBankroll: snapshot.currentBankroll };
   const filteredOperations = operations
@@ -132,25 +169,27 @@ export function BankrollDashboard({
     event.preventDefault();
 
     const stake = Number(form.stake);
-    const odds = Number(form.odds);
-    const profitByStatus: Record<OperationStatus, number> = {
-      green: stake * (odds - 1),
-      red: -stake,
-      void: 0,
-      open: 0,
-    };
+    const entryOdds = Number(form.entryOdds);
+    const exitOdds = form.exitOdds ? Number(form.exitOdds) : undefined;
+    const calculatedProfit = form.status === "open" || form.status === "void"
+      ? 0
+      : calculateTradeProfit(form.side, stake, entryOdds, exitOdds);
     const operation: BankrollOperation = {
       id: `op-${Date.now()}`,
       date: form.date,
       strategyId: form.strategyId,
       method: form.method,
       market: form.market,
-      event: form.event.trim() || "Entrada sem evento informado",
+      competition: form.competition.trim() || "Campeonato não informado",
+      homeTeam: form.homeTeam.trim() || "Mandante não informado",
+      awayTeam: form.awayTeam.trim() || "Visitante não informado",
       selection: form.selection.trim() || "Seleção não informada",
-      odds,
+      side: form.side,
+      entryOdds,
+      exitOdds,
       stake,
-      profit: profitByStatus[form.status],
-      status: form.status,
+      profit: calculatedProfit,
+      status: form.status === "open" || form.status === "void" ? form.status : resolveTradeStatus(calculatedProfit),
       notes: form.notes.trim() || undefined,
     };
 
@@ -163,10 +202,10 @@ export function BankrollDashboard({
       <header className="page-header">
         <div>
           <p className="eyebrow">Gestão de Banca</p>
-          <h1>Dashboard operacional de banca e métodos de entrada</h1>
+          <h1>Gestão de banca para trader esportivo na Betfair</h1>
           <p>
-            Registre entradas, acompanhe o risco em tempo real e descubra quais métodos estão
-            lucrativos, neutros ou em prejuízo antes de aumentar exposição.
+            Registre campeonato, equipes, mercado, lado Back/Lay e odds de entrada/saída para
+            medir se o método gera movimento de preço favorável antes de aumentar exposição.
           </p>
         </div>
         <div className="bankroll-balance">
@@ -208,7 +247,7 @@ export function BankrollDashboard({
           <div className="section-heading">
             <div>
               <p className="eyebrow">Nova entrada</p>
-              <h2>Informar método da entrada</h2>
+              <h2>Registrar trade Betfair</h2>
             </div>
           </div>
           <form className="operation-form" onSubmit={submitOperation}>
@@ -246,17 +285,33 @@ export function BankrollDashboard({
                 value={form.market}
                 onChange={(event) => setForm({ ...form, market: event.target.value as BetMarket })}
               >
-                {markets.map((market) => (
+                {betfairMarkets.map((market) => (
                   <option key={market} value={market}>{market}</option>
                 ))}
               </select>
             </label>
             <label>
-              Evento
+              Campeonato
               <input
-                placeholder="Ex.: Flamengo x Palmeiras"
-                value={form.event}
-                onChange={(event) => setForm({ ...form, event: event.target.value })}
+                placeholder="Ex.: Premier League"
+                value={form.competition}
+                onChange={(event) => setForm({ ...form, competition: event.target.value })}
+              />
+            </label>
+            <label>
+              Equipe mandante
+              <input
+                placeholder="Ex.: Arsenal"
+                value={form.homeTeam}
+                onChange={(event) => setForm({ ...form, homeTeam: event.target.value })}
+              />
+            </label>
+            <label>
+              Equipe visitante
+              <input
+                placeholder="Ex.: Chelsea"
+                value={form.awayTeam}
+                onChange={(event) => setForm({ ...form, awayTeam: event.target.value })}
               />
             </label>
             <label>
@@ -268,14 +323,36 @@ export function BankrollDashboard({
               />
             </label>
             <label>
-              Odd
+              Lado
+              <select
+                value={form.side}
+                onChange={(event) => setForm({ ...form, side: event.target.value as TradeSide })}
+              >
+                {sides.map((side) => (
+                  <option key={side} value={side}>{side}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Odd entrada
               <input
                 required
                 min="1.01"
                 step="0.01"
                 type="number"
-                value={form.odds}
-                onChange={(event) => setForm({ ...form, odds: event.target.value })}
+                value={form.entryOdds}
+                onChange={(event) => setForm({ ...form, entryOdds: event.target.value })}
+              />
+            </label>
+            <label>
+              Odd saída
+              <input
+                min="1.01"
+                step="0.01"
+                type="number"
+                placeholder="Preencha ao fechar"
+                value={form.exitOdds}
+                onChange={(event) => setForm({ ...form, exitOdds: event.target.value })}
               />
             </label>
             <label>
@@ -326,7 +403,7 @@ export function BankrollDashboard({
                   <span>{trendLabels[method.trend]}</span>
                   <strong>{method.method}</strong>
                   <small>
-                    {method.operations} ops · {formatPercent(method.hitRate)} acerto · ROI {formatPercent(method.roi)} · odd média {method.averageOdds.toFixed(2)}
+                    {method.operations} trades · {formatPercent(method.hitRate)} acerto · ROI {formatPercent(method.roi)} · entrada média {method.averageEntryOdds.toFixed(2)} · saída média {method.averageExitOdds.toFixed(2)}
                   </small>
                   <p>{method.recommendation}</p>
                 </div>
@@ -335,6 +412,18 @@ export function BankrollDashboard({
             ))}
           </div>
         </article>
+      </section>
+
+      <section className="market-grid" aria-label="Desempenho por mercado Betfair">
+        {snapshot.markets.filter((market) => market.operations > 0).map((market) => (
+          <article className={`market-card ${market.trend}`} key={market.market}>
+            <span>{market.market}</span>
+            <strong>{currencyFormatter.format(market.profit)}</strong>
+            <small>
+              {market.operations} trades · ROI {formatPercent(market.roi)} · entrada {market.averageEntryOdds.toFixed(2)} → saída {market.averageExitOdds.toFixed(2)}
+            </small>
+          </article>
+        ))}
       </section>
 
       <section className="dashboard-grid lower-grid">
@@ -372,8 +461,9 @@ export function BankrollDashboard({
               <thead>
                 <tr>
                   <th>Data</th>
-                  <th>Evento</th>
-                  <th>Método</th>
+                  <th>Jogo / Campeonato</th>
+                  <th>Mercado / Método</th>
+                  <th>Odds</th>
                   <th>Stake</th>
                   <th>Resultado</th>
                 </tr>
@@ -383,10 +473,14 @@ export function BankrollDashboard({
                   <tr key={operation.id}>
                     <td>{operation.date}</td>
                     <td>
-                      <strong>{operation.event}</strong>
-                      <small>{operation.selection} · {operation.market} @ {operation.odds.toFixed(2)}</small>
+                      <strong>{operation.homeTeam} x {operation.awayTeam}</strong>
+                      <small>{operation.competition} · {operation.selection}</small>
                     </td>
-                    <td>{operation.method}</td>
+                    <td>
+                      <strong>{operation.market}</strong>
+                      <small>{operation.method} · {operation.side}</small>
+                    </td>
+                    <td>{operation.entryOdds.toFixed(2)} → {operation.exitOdds ? operation.exitOdds.toFixed(2) : "aberta"}</td>
                     <td>{currencyFormatter.format(operation.stake)}</td>
                     <td className={`status ${operation.status}`}>
                       {operation.status === "open"
@@ -414,7 +508,7 @@ export function BankrollDashboard({
                 <div>
                   <strong>{strategy.strategyName}</strong>
                   <small>
-                    {strategy.operations} ops · {formatPercent(strategy.hitRate)} acerto · ROI {formatPercent(strategy.roi)}
+                    {strategy.operations} trades · {formatPercent(strategy.hitRate)} acerto · ROI {formatPercent(strategy.roi)} · move médio {strategy.averageTickMove.toFixed(2)}
                   </small>
                 </div>
                 <b className={strategy.profit < 0 ? "negative-value" : undefined}>{currencyFormatter.format(strategy.profit)}</b>

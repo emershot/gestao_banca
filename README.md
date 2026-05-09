@@ -1,29 +1,35 @@
 # Gestão de Banca
 
-MVP em Next.js para gestão de banca esportiva, focado em disciplina operacional,
-controle de risco e leitura rápida de performance por estratégia.
+MVP em Next.js para gestão de banca de trader esportivo na Betfair, focado em disciplina operacional,
+controle de risco, leitura de preço e análise por método, mercado, campeonato e equipes.
 
 ## O que o MVP entrega
 
 - Painel em `/bankroll` com KPIs de lucro total, ROI, taxa de acerto, drawdown máximo,
   stake média e exposição aberta.
 - Curva patrimonial da banca com Recharts.
-- Plano de risco com medidor visual, limites de stake, stop loss e take profit.
-- Cadastro local de novas entradas com estratégia, mercado, odd, stake, status e método de entrada.
-- Últimas operações, ranking de estratégias, ranking de métodos e regras de banca.
-- Diagnóstico automático de métodos lucrativos, neutros ou em prejuízo com recomendação operacional.
-- Dados mockados tipados e cálculos de banca para lucro, ROI, drawdown, taxa de acerto,
-  stake média, curva patrimonial e resumo por estratégia.
-- Tipos de domínio para operações, mercados, métodos de entrada, status, regras, estratégias e snapshot da banca.
+- Plano de risco com medidor visual, limites de stake, stop loss, take profit e alertas de exposição.
+- Cadastro local de trades com estratégia, método, mercado Betfair, campeonato, equipes, seleção,
+  lado Back/Lay, odd de entrada, odd de saída, stake, status e observações.
+- Cálculo automático de lucro/prejuízo do trade a partir das odds de entrada e saída, respeitando
+  a lógica de Back e Lay.
+- Ranking de métodos para identificar o que está lucrativo, neutro ou em prejuízo, incluindo ROI,
+  taxa de acerto, entrada média, saída média, movimento médio de preço e recomendação operacional.
+- Ranking de estratégias, análise por mercado, últimas operações e regras de banca voltadas para
+  trading esportivo com responsabilidade de exposição.
+- Dados mockados tipados e cálculos de banca para lucro, ROI, drawdown, taxa de acerto, stake média,
+  curva patrimonial, resumo por estratégia, resumo por método e alertas de risco.
+- Tipos de domínio para operações, mercados Betfair, métodos de entrada, odds de entrada/saída,
+  campeonatos, equipes, status, regras, estratégias e snapshot da banca.
 - Item “Gestão de Banca” no menu lateral apontando para `/bankroll`.
 
 ## Módulos futuros sugeridos
 
-- Cadastro e importação de operações via CSV/planilha.
+- Importação de histórico da Betfair via CSV/planilha.
 - Persistência em banco de dados e autenticação por usuário.
-- Alertas automáticos para stop loss, exposição diária, método em prejuízo e quarentena de estratégias.
-- Relatórios por casa de aposta, esporte, mercado e período.
-- Simulador de stake dinâmica com Kelly fracionado e unidades fixas.
+- Alertas automáticos para liability no Lay, spread alto, liquidez baixa, stop por sessão e método em prejuízo.
+- Relatórios por competição, equipe, mercado, seleção, horário de entrada e período.
+- Simulador de stake com responsabilidade máxima, greenbook/redbook e proteção por hedge parcial.
 
 ## Como executar
 
@@ -34,4 +40,4 @@ npm install
 npm run dev
 ```
 
-Depois abra [http://localhost:9002/bankroll](http://localhost:9002/bankroll). Use o formulário “Nova entrada” para informar o método da entrada e ver a banca, os KPIs e o ranking de métodos serem recalculados na tela.
+Depois abra [http://localhost:9002/bankroll](http://localhost:9002/bankroll). Use o formulário “Registrar trade Betfair” para informar mercado, campeonato, equipes, odds de entrada e saída; a banca, os KPIs e o ranking de métodos serão recalculados na tela.

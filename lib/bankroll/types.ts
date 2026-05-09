@@ -1,18 +1,23 @@
 export type BetMarket =
-  | "Futebol"
-  | "Tênis"
-  | "Basquete"
-  | "Escanteios"
-  | "Over/Under"
-  | "Handicap";
+  | "Match Odds"
+  | "Correct Score"
+  | "Over/Under Goals"
+  | "Both Teams To Score"
+  | "Asian Handicap"
+  | "Corners"
+  | "Tennis Match Odds"
+  | "Basketball Totals";
+
+export type TradeSide = "Back" | "Lay";
 
 export type EntryMethod =
-  | "Value bet pré-jogo"
-  | "Live momentum"
-  | "Modelo estatístico"
-  | "Leitura de linhas"
-  | "Arbitragem manual"
-  | "Gestão de posição";
+  | "Value pré-live"
+  | "Scalping de ticks"
+  | "Swing trade"
+  | "Lay ao favorito"
+  | "Back ao underdog"
+  | "Leitura de pressão"
+  | "Hedge de posição";
 
 export type OperationStatus = "green" | "red" | "void" | "open";
 
@@ -42,9 +47,13 @@ export type BankrollOperation = {
   strategyId: string;
   method: EntryMethod;
   market: BetMarket;
-  event: string;
+  competition: string;
+  homeTeam: string;
+  awayTeam: string;
   selection: string;
-  odds: number;
+  side: TradeSide;
+  entryOdds: number;
+  exitOdds?: number;
   stake: number;
   profit: number;
   status: OperationStatus;
@@ -65,7 +74,9 @@ export type PerformanceSummary = {
   stake: number;
   roi: number;
   hitRate: number;
-  averageOdds: number;
+  averageEntryOdds: number;
+  averageExitOdds: number;
+  averageTickMove: number;
   trend: PerformanceTrend;
 };
 
@@ -78,6 +89,10 @@ export type MethodSummary = PerformanceSummary & {
   method: EntryMethod;
   averageStake: number;
   recommendation: string;
+};
+
+export type MarketSummary = PerformanceSummary & {
+  market: BetMarket;
 };
 
 export type RiskAlert = {
@@ -109,5 +124,6 @@ export type BankrollSnapshot = {
   equityCurve: EquityPoint[];
   strategies: StrategySummary[];
   methods: MethodSummary[];
+  markets: MarketSummary[];
   alerts: RiskAlert[];
 };
