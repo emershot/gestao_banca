@@ -10,9 +10,9 @@ controle de risco, leitura de preço e análise por método, mercado, campeonato
 - Curva patrimonial da banca com Recharts.
 - Plano de risco com medidor visual, limites de stake, stop loss, take profit e alertas de exposição.
 - Cadastro local de trades com estratégia, método, mercado Betfair, campeonato, equipes, seleção,
-  lado Back/Lay, odd de entrada, odd de saída, stake, status e observações.
+  lado Back/Lay, odd de entrada, odd de saída, tempo de entrada, tempo de saída, impacto de gol, stake, status e observações.
 - Cálculo automático de lucro/prejuízo do trade a partir das odds de entrada e saída, respeitando
-  a lógica de Back e Lay.
+  a lógica de Back e Lay, com edição e exclusão de entradas já registradas.
 - Ranking de métodos para identificar o que está lucrativo, neutro ou em prejuízo, incluindo ROI,
   taxa de acerto, entrada média, saída média, movimento médio de preço e recomendação operacional.
 - Ranking de estratégias, análise por mercado, últimas operações e regras de banca voltadas para
@@ -40,4 +40,4 @@ npm install
 npm run dev
 ```
 
-Depois abra [http://localhost:9002/bankroll](http://localhost:9002/bankroll). Use o formulário “Registrar trade Betfair” para informar mercado, campeonato, equipes, odds de entrada e saída; a banca, os KPIs e o ranking de métodos serão recalculados na tela.
+Depois abra [http://localhost:9002/bankroll](http://localhost:9002/bankroll). Use o formulário “Registrar trade Betfair” para informar mercado, campeonato, equipes, Back/Lay, odds de entrada/saída, tempo de entrada/saída e se houve gol a favor ou contra; a banca, os KPIs e o ranking de métodos serão recalculados na tela.

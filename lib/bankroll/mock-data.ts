@@ -59,8 +59,9 @@ export const strategies: BettingStrategy[] = [
   },
 ];
 
-type OperationSeed = Omit<BankrollOperation, "profit" | "status"> & {
+type OperationSeed = Omit<BankrollOperation, "profit" | "status" | "goalImpact"> & {
   status?: BankrollOperation["status"];
+  goalImpact?: BankrollOperation["goalImpact"];
 };
 
 const buildOperation = (operation: OperationSeed): BankrollOperation => {
@@ -69,6 +70,7 @@ const buildOperation = (operation: OperationSeed): BankrollOperation => {
     : calculateTradeProfit(operation.side, operation.stake, operation.entryOdds, operation.exitOdds);
 
   return {
+    goalImpact: "sem gol",
     ...operation,
     profit,
     status: operation.status ?? resolveTradeStatus(profit),
@@ -89,6 +91,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 2.24,
     exitOdds: 1.92,
+    entryMinute: 18,
+    exitMinute: 41,
+    goalImpact: "sem gol",
     stake: 120,
   }),
   buildOperation({
@@ -104,6 +109,9 @@ export const operations: BankrollOperation[] = [
     side: "Lay",
     entryOdds: 1.78,
     exitOdds: 2.08,
+    entryMinute: 22,
+    exitMinute: 53,
+    goalImpact: "gol contra",
     stake: 90,
   }),
   buildOperation({
@@ -119,6 +127,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 2.1,
     exitOdds: 1.83,
+    entryMinute: 61,
+    exitMinute: 72,
+    goalImpact: "gol a favor",
     stake: 80,
   }),
   buildOperation({
@@ -134,6 +145,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 1.96,
     exitOdds: 1.88,
+    entryMinute: 34,
+    exitMinute: 39,
+    goalImpact: "sem gol",
     stake: 70,
   }),
   buildOperation({
@@ -149,6 +163,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 2.36,
     exitOdds: 2.58,
+    entryMinute: 12,
+    exitMinute: 29,
+    goalImpact: "gol contra",
     stake: 110,
   }),
   buildOperation({
@@ -164,6 +181,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 1.92,
     exitOdds: 1.74,
+    entryMinute: 56,
+    exitMinute: 68,
+    goalImpact: "gol a favor",
     stake: 95,
   }),
   buildOperation({
@@ -179,6 +199,9 @@ export const operations: BankrollOperation[] = [
     side: "Lay",
     entryOdds: 1.42,
     exitOdds: 1.34,
+    entryMinute: 8,
+    exitMinute: 24,
+    goalImpact: "sem gol",
     stake: 100,
   }),
   buildOperation({
@@ -194,6 +217,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 1.74,
     exitOdds: 1.69,
+    entryMinute: 70,
+    exitMinute: 76,
+    goalImpact: "sem gol",
     stake: 75,
   }),
   buildOperation({
@@ -209,6 +235,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 5.4,
     exitOdds: 4.6,
+    entryMinute: 31,
+    exitMinute: 48,
+    goalImpact: "gol a favor",
     stake: 55,
   }),
   buildOperation({
@@ -224,6 +253,9 @@ export const operations: BankrollOperation[] = [
     side: "Lay",
     entryOdds: 1.64,
     exitOdds: 1.72,
+    entryMinute: 44,
+    exitMinute: 62,
+    goalImpact: "ambos",
     stake: 85,
   }),
   buildOperation({
@@ -239,6 +271,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 1.88,
     exitOdds: 1.72,
+    entryMinute: 15,
+    exitMinute: 37,
+    goalImpact: "sem gol",
     stake: 130,
   }),
   buildOperation({
@@ -254,6 +289,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 2.04,
     exitOdds: 2.18,
+    entryMinute: 63,
+    exitMinute: 71,
+    goalImpact: "gol contra",
     stake: 70,
   }),
   buildOperation({
@@ -269,6 +307,9 @@ export const operations: BankrollOperation[] = [
     side: "Lay",
     entryOdds: 1.86,
     exitOdds: 2.22,
+    entryMinute: 52,
+    exitMinute: 77,
+    goalImpact: "gol contra",
     stake: 95,
   }),
   buildOperation({
@@ -284,6 +325,9 @@ export const operations: BankrollOperation[] = [
     side: "Back",
     entryOdds: 2.34,
     exitOdds: 2.62,
+    entryMinute: 58,
+    exitMinute: 66,
+    goalImpact: "gol contra",
     stake: 80,
   }),
   buildOperation({
@@ -298,6 +342,8 @@ export const operations: BankrollOperation[] = [
     selection: "Tottenham",
     side: "Back",
     entryOdds: 2.48,
+    entryMinute: 26,
+    goalImpact: "sem gol",
     stake: 100,
     status: "open",
   }),

@@ -10,6 +10,8 @@ export type BetMarket =
 
 export type TradeSide = "Back" | "Lay";
 
+export type GoalImpact = "sem gol" | "gol a favor" | "gol contra" | "ambos";
+
 export type EntryMethod =
   | "Value pré-live"
   | "Scalping de ticks"
@@ -54,6 +56,9 @@ export type BankrollOperation = {
   side: TradeSide;
   entryOdds: number;
   exitOdds?: number;
+  entryMinute?: number;
+  exitMinute?: number;
+  goalImpact: GoalImpact;
   stake: number;
   profit: number;
   status: OperationStatus;

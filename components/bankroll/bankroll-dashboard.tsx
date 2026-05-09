@@ -11,6 +11,7 @@ import type {
   BetMarket,
   BettingStrategy,
   EntryMethod,
+  GoalImpact,
   OperationStatus,
   RiskPlan,
   TradeSide,
@@ -28,6 +29,7 @@ const percentFormatter = new Intl.NumberFormat("pt-BR", {
 });
 
 const sides: TradeSide[] = ["Back", "Lay"];
+const goalImpacts: GoalImpact[] = ["sem gol", "gol a favor", "gol contra", "ambos"];
 const statuses: OperationStatus[] = ["green", "red", "void", "open"];
 const storageKey = "gestao-banca-operations";
 
@@ -44,6 +46,40 @@ const trendLabels = {
   neutro: "Neutro",
 };
 
+const goalImpactLabels: Record<GoalImpact, string> = {
+  "sem gol": "Sem gol",
+  "gol a favor": "Gol a favor",
+  "gol contra": "Tomei/levei gol",
+  ambos: "Ambos",
+};
+
+const legacyMethodMap: Record<string, EntryMethod> = {
+  "Value bet pré-jogo": "Value pré-live",
+  "Live momentum": "Leitura de pressão",
+  "Modelo estatístico": "Swing trade",
+  "Leitura de linhas": "Scalping de ticks",
+  "Arbitragem manual": "Hedge de posição",
+  "Gestão de posição": "Hedge de posição",
+};
+
+const legacyMarketMap: Record<string, BetMarket> = {
+  Futebol: "Match Odds",
+  Tênis: "Tennis Match Odds",
+  Basquete: "Basketball Totals",
+  Escanteios: "Corners",
+  "Over/Under": "Over/Under Goals",
+  Handicap: "Asian Handicap",
+};
+
+const normalizeMethod = (method?: string) => (
+  method && method in legacyMethodMap ? legacyMethodMap[method] : (method as EntryMethod | undefined) ?? "Swing trade"
+);
+
+const normalizeMarket = (market?: string) => (
+  market && market in legacyMarketMap ? legacyMarketMap[market] : (market as BetMarket | undefined) ?? "Match Odds"
+);
+
+
 const formatPercent = (value: number) => percentFormatter.format(value / 100);
 
 const createInitialForm = (strategy: BettingStrategy, method: EntryMethod) => ({
@@ -58,6 +94,9 @@ const createInitialForm = (strategy: BettingStrategy, method: EntryMethod) => ({
   side: "Back" as TradeSide,
   entryOdds: "1.80",
   exitOdds: "",
+  entryMinute: "",
+  exitMinute: "",
+  goalImpact: "sem gol" as GoalImpact,
   stake: "50",
   status: "open" as OperationStatus,
   notes: "",
@@ -77,8 +116,8 @@ const normalizeStoredOperation = (operation: StoredOperation): BankrollOperation
     id: operation.id ?? `op-${Date.now()}`,
     date: operation.date ?? new Date().toISOString().slice(0, 10),
     strategyId: operation.strategyId ?? "match-odds-swing",
-    method: operation.method ?? "Swing trade",
-    market: operation.market ?? "Match Odds",
+    method: normalizeMethod(operation.method),
+    market: normalizeMarket(operation.market),
     competition: operation.competition ?? "Campeonato não informado",
     homeTeam: operation.homeTeam ?? homeTeam,
     awayTeam: operation.awayTeam ?? awayTeam,
@@ -86,6 +125,9 @@ const normalizeStoredOperation = (operation: StoredOperation): BankrollOperation
     side: operation.side ?? "Back",
     entryOdds: operation.entryOdds ?? operation.odds ?? 1.8,
     exitOdds: operation.exitOdds,
+    entryMinute: operation.entryMinute,
+    exitMinute: operation.exitMinute,
+    goalImpact: operation.goalImpact ?? "sem gol",
     stake: operation.stake ?? 0,
     profit: operation.profit ?? 0,
     status: operation.status ?? "open",
@@ -117,7 +159,7 @@ export function BankrollDashboard({
   const [methodFilter, setMethodFilter] = useState<EntryMethod | "todos">("todos");
   const [statusFilter, setStatusFilter] = useState<OperationStatus | "todos">("todos");
   const [form, setForm] = useState(() => createInitialForm(strategies[0], entryMethods[0]));
-
+  const [editingOperationId, setEditingOperationId] = useState<string | null>(null);
 
   useEffect(() => {
     const storedOperations = window.localStorage.getItem(storageKey);
@@ -171,11 +213,13 @@ export function BankrollDashboard({
     const stake = Number(form.stake);
     const entryOdds = Number(form.entryOdds);
     const exitOdds = form.exitOdds ? Number(form.exitOdds) : undefined;
+    const entryMinute = form.entryMinute ? Number(form.entryMinute) : undefined;
+    const exitMinute = form.exitMinute ? Number(form.exitMinute) : undefined;
     const calculatedProfit = form.status === "open" || form.status === "void"
       ? 0
       : calculateTradeProfit(form.side, stake, entryOdds, exitOdds);
     const operation: BankrollOperation = {
-      id: `op-${Date.now()}`,
+      id: editingOperationId ?? `op-${Date.now()}`,
       date: form.date,
       strategyId: form.strategyId,
       method: form.method,
@@ -187,14 +231,60 @@ export function BankrollDashboard({
       side: form.side,
       entryOdds,
       exitOdds,
+      entryMinute,
+      exitMinute,
+      goalImpact: form.goalImpact,
       stake,
       profit: calculatedProfit,
       status: form.status === "open" || form.status === "void" ? form.status : resolveTradeStatus(calculatedProfit),
       notes: form.notes.trim() || undefined,
     };
 
-    setOperations((currentOperations) => [...currentOperations, operation]);
+    setOperations((currentOperations) => (
+      editingOperationId
+        ? currentOperations.map((currentOperation) => (
+          currentOperation.id === editingOperationId ? operation : currentOperation
+        ))
+        : [...currentOperations, operation]
+    ));
+    setEditingOperationId(null);
     setForm(createInitialForm(strategies[0], form.method));
+  };
+
+  const editOperation = (operation: BankrollOperation) => {
+    setEditingOperationId(operation.id);
+    setForm({
+      date: operation.date,
+      strategyId: operation.strategyId,
+      method: operation.method,
+      market: operation.market,
+      competition: operation.competition,
+      homeTeam: operation.homeTeam,
+      awayTeam: operation.awayTeam,
+      selection: operation.selection,
+      side: operation.side,
+      entryOdds: String(operation.entryOdds),
+      exitOdds: operation.exitOdds ? String(operation.exitOdds) : "",
+      entryMinute: operation.entryMinute ? String(operation.entryMinute) : "",
+      exitMinute: operation.exitMinute ? String(operation.exitMinute) : "",
+      goalImpact: operation.goalImpact,
+      stake: String(operation.stake),
+      status: operation.status,
+      notes: operation.notes ?? "",
+    });
+  };
+
+  const cancelEdition = () => {
+    setEditingOperationId(null);
+    setForm(createInitialForm(strategies[0], entryMethods[0]));
+  };
+
+  const deleteOperation = (operationId: string) => {
+    setOperations((currentOperations) => currentOperations.filter((operation) => operation.id !== operationId));
+
+    if (editingOperationId === operationId) {
+      cancelEdition();
+    }
   };
 
   return (
@@ -246,8 +336,8 @@ export function BankrollDashboard({
         <article className="panel-card operation-form-card">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Nova entrada</p>
-              <h2>Registrar trade Betfair</h2>
+              <p className="eyebrow">{editingOperationId ? "Editando entrada" : "Nova entrada"}</p>
+              <h2>{editingOperationId ? "Editar trade Betfair" : "Registrar trade Betfair"}</h2>
             </div>
           </div>
           <form className="operation-form" onSubmit={submitOperation}>
@@ -356,6 +446,41 @@ export function BankrollDashboard({
               />
             </label>
             <label>
+              Tempo entrada (min)
+              <input
+                min="0"
+                max="130"
+                step="1"
+                type="number"
+                placeholder="Ex.: 18"
+                value={form.entryMinute}
+                onChange={(event) => setForm({ ...form, entryMinute: event.target.value })}
+              />
+            </label>
+            <label>
+              Tempo saída (min)
+              <input
+                min="0"
+                max="130"
+                step="1"
+                type="number"
+                placeholder="Ex.: 42"
+                value={form.exitMinute}
+                onChange={(event) => setForm({ ...form, exitMinute: event.target.value })}
+              />
+            </label>
+            <label>
+              Gol no trade
+              <select
+                value={form.goalImpact}
+                onChange={(event) => setForm({ ...form, goalImpact: event.target.value as GoalImpact })}
+              >
+                {goalImpacts.map((goalImpact) => (
+                  <option key={goalImpact} value={goalImpact}>{goalImpactLabels[goalImpact]}</option>
+                ))}
+              </select>
+            </label>
+            <label>
               Stake
               <input
                 required
@@ -385,7 +510,12 @@ export function BankrollDashboard({
                 onChange={(event) => setForm({ ...form, notes: event.target.value })}
               />
             </label>
-            <button type="submit">Adicionar entrada e recalcular banca</button>
+            <div className="form-actions">
+              {editingOperationId ? (
+                <button className="secondary-button" type="button" onClick={cancelEdition}>Cancelar edição</button>
+              ) : null}
+              <button type="submit">{editingOperationId ? "Salvar edição e recalcular banca" : "Adicionar entrada e recalcular banca"}</button>
+            </div>
           </form>
         </article>
 
@@ -466,6 +596,7 @@ export function BankrollDashboard({
                   <th>Odds</th>
                   <th>Stake</th>
                   <th>Resultado</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -480,12 +611,21 @@ export function BankrollDashboard({
                       <strong>{operation.market}</strong>
                       <small>{operation.method} · {operation.side}</small>
                     </td>
-                    <td>{operation.entryOdds.toFixed(2)} → {operation.exitOdds ? operation.exitOdds.toFixed(2) : "aberta"}</td>
+                    <td>
+                      <strong>{operation.entryOdds.toFixed(2)} → {operation.exitOdds ? operation.exitOdds.toFixed(2) : "aberta"}</strong>
+                      <small>{operation.entryMinute ?? "?"}' → {operation.exitMinute ?? "?"}' · {goalImpactLabels[operation.goalImpact]}</small>
+                    </td>
                     <td>{currencyFormatter.format(operation.stake)}</td>
                     <td className={`status ${operation.status}`}>
                       {operation.status === "open"
                         ? "Aberta"
                         : currencyFormatter.format(operation.profit)}
+                    </td>
+                    <td>
+                      <div className="table-actions">
+                        <button type="button" onClick={() => editOperation(operation)}>Editar</button>
+                        <button className="danger-action" type="button" onClick={() => deleteOperation(operation.id)}>Excluir</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
