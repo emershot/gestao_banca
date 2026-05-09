@@ -6,9 +6,19 @@ export type BetMarket =
   | "Over/Under"
   | "Handicap";
 
+export type EntryMethod =
+  | "Value bet pré-jogo"
+  | "Live momentum"
+  | "Modelo estatístico"
+  | "Leitura de linhas"
+  | "Arbitragem manual"
+  | "Gestão de posição";
+
 export type OperationStatus = "green" | "red" | "void" | "open";
 
 export type RiskLevel = "conservador" | "moderado" | "agressivo";
+
+export type PerformanceTrend = "lucrativo" | "prejuízo" | "neutro";
 
 export type BankrollRule = {
   id: string;
@@ -30,6 +40,7 @@ export type BankrollOperation = {
   id: string;
   date: string;
   strategyId: string;
+  method: EntryMethod;
   market: BetMarket;
   event: string;
   selection: string;
@@ -37,6 +48,7 @@ export type BankrollOperation = {
   stake: number;
   profit: number;
   status: OperationStatus;
+  notes?: string;
 };
 
 export type EquityPoint = {
@@ -45,15 +57,34 @@ export type EquityPoint = {
   profit: number;
 };
 
-export type StrategySummary = {
-  strategyId: string;
-  strategyName: string;
+export type PerformanceSummary = {
   operations: number;
   wins: number;
+  losses: number;
   profit: number;
   stake: number;
   roi: number;
   hitRate: number;
+  averageOdds: number;
+  trend: PerformanceTrend;
+};
+
+export type StrategySummary = PerformanceSummary & {
+  strategyId: string;
+  strategyName: string;
+};
+
+export type MethodSummary = PerformanceSummary & {
+  method: EntryMethod;
+  averageStake: number;
+  recommendation: string;
+};
+
+export type RiskAlert = {
+  id: string;
+  title: string;
+  description: string;
+  severity: "success" | "info" | "warning" | "critical";
 };
 
 export type RiskPlan = {
@@ -77,4 +108,6 @@ export type BankrollSnapshot = {
   openExposure: number;
   equityCurve: EquityPoint[];
   strategies: StrategySummary[];
+  methods: MethodSummary[];
+  alerts: RiskAlert[];
 };

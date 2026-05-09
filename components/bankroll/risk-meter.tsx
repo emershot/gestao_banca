@@ -1,4 +1,4 @@
-import type { RiskPlan } from "@/lib/bankroll/types";
+import type { RiskAlert, RiskPlan } from "@/lib/bankroll/types";
 
 const profileLabels = {
   conservador: "Conservador",
@@ -6,7 +6,15 @@ const profileLabels = {
   agressivo: "Agressivo",
 };
 
-export function RiskMeter({ plan, exposure }: { plan: RiskPlan; exposure: number }) {
+export function RiskMeter({
+  plan,
+  exposure,
+  alerts = [],
+}: {
+  plan: RiskPlan;
+  exposure: number;
+  alerts?: RiskAlert[];
+}) {
   const exposureUsage = Math.min(100, Math.round((exposure / plan.maxDailyExposure) * 100));
   const riskPosition = plan.profile === "conservador" ? 22 : plan.profile === "moderado" ? 52 : 82;
 
@@ -39,6 +47,17 @@ export function RiskMeter({ plan, exposure }: { plan: RiskPlan; exposure: number
           <strong>{plan.takeProfitPercentage}%</strong>
         </div>
       </div>
+
+      {alerts.length > 0 ? (
+        <div className="alert-list" aria-label="Alertas e recomendações de risco">
+          {alerts.slice(0, 4).map((alert) => (
+            <div className={`risk-alert ${alert.severity}`} key={alert.id}>
+              <strong>{alert.title}</strong>
+              <p>{alert.description}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </article>
   );
 }

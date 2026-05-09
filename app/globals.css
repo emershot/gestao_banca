@@ -416,3 +416,197 @@ th {
     grid-template-columns: 1fr;
   }
 }
+
+.insight-grid,
+.operation-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.insight-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.operation-grid {
+  grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.05fr);
+}
+
+.insight-card,
+.method-item,
+.risk-alert {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 20px;
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+}
+
+.insight-card span,
+.method-item span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.insight-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.45rem;
+}
+
+.insight-card p,
+.method-item p,
+.risk-alert p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.insight-card.positive,
+.method-item.lucrativo,
+.risk-alert.success {
+  border-color: #bbf7d0;
+}
+
+.insight-card.danger,
+.method-item.prejuízo,
+.risk-alert.critical,
+.risk-alert.warning {
+  border-color: #fecaca;
+}
+
+.kpi-card.danger strong,
+.negative-value,
+.method-item.prejuízo b {
+  color: var(--danger);
+}
+
+.method-item.lucrativo b {
+  color: var(--positive);
+}
+
+.operation-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.operation-form label {
+  display: grid;
+  gap: 8px;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.operation-form input,
+.operation-form select,
+.operation-form textarea,
+.filters select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: white;
+  color: var(--foreground);
+  font: inherit;
+  padding: 12px 14px;
+}
+
+.operation-form textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.full-field,
+.operation-form button {
+  grid-column: 1 / -1;
+}
+
+.operation-form button {
+  border: 0;
+  border-radius: 16px;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 15px 18px;
+}
+
+.operation-form button:hover,
+.operation-form button:focus {
+  background: #1d4ed8;
+}
+
+.method-list,
+.alert-list {
+  display: grid;
+  gap: 12px;
+}
+
+.alert-list {
+  margin-top: 20px;
+}
+
+.method-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.method-item strong {
+  display: block;
+  margin-top: 6px;
+}
+
+.method-item b {
+  white-space: nowrap;
+}
+
+.risk-alert {
+  padding: 14px;
+  box-shadow: none;
+}
+
+.risk-alert.info {
+  border-color: #bfdbfe;
+}
+
+.filters-heading {
+  align-items: flex-start;
+}
+
+.filters {
+  display: grid;
+  min-width: 340px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1200px) {
+  .operation-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .insight-grid,
+  .operation-grid,
+  .operation-form,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .filters {
+    min-width: 0;
+  }
+
+  .method-item,
+  .filters-heading {
+    flex-direction: column;
+  }
+}
